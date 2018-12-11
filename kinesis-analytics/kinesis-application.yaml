@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "KinesisAnalytics via CloudFormation"
+Resources:
+  KinesisDataApplication:
+    Type: AWS::KinesisAnalytics::Application
+    Properties:
+      ApplicationName: "kinesis-ambient-metrics"
+      ApplicationDescription: "Application for ambient metrics"
+      ApplicationCode: |
+        CREATE OR REPLACE STREAM "DESTINATION_STREAM"
+        (date_time VARCHAR(32),
+        metric_id VARCHAR(64),
+        temperature NUMERIC);
+
+        CREATE OR REPLACE PUMP "STREAM_PUMP" AS
+
+        INSERT INTO "DESTINATION_STREAM"
+        SELECT STREAM date_time, metric_id, temperature
+        FROM   "SOURCE_STREAM";
+      Inputs:
+        - NamePrefix: "metricsInStream"
+          InputSchema:
+            RecordColumns:
+              - Name: "date_time"
+                SqlType: "VARCHAR(32)"
+                Mapping: "$.date_time"
+              - Name: "device_id"
+                SqlType: "VARCHAR(15)"
+                Mapping: "$.device_id"
+              - Name: "event_type"
+                SqlType: "VARCHAR(8)"
+                Mapping: "$.event_type"
+              - Name: "application"
+                SqlType: "VARCHAR(8)"
+                Mapping: "$.application"
+              - Name: "id"
+                SqlType: "VARCHAR(64)"
+                Mapping: "$.id"
+              - Name: "temperature"
+                SqlType: "NUMERIC"
+                Mapping: "$.temperature"
+              - Name: "humidity"
+                SqlType: "NUMERIC"
+                Mapping: "$.humidity"
+              - Name: "pressure"
+                SqlType: "NUMERIC"
+                Mapping: "$.pressure"
+            RecordFormat:
+              RecordFormatType: "JSON"
+              MappingParameters:
+                JSONMappingParameters:
+                  RecordRowPath: "$"
+          KinesisStreamsInput:
+            ResourceARN: !GetAtt InputKinesisStream.Arn
+            RoleARN: !GetAtt KinesisAnalyticsRole.Arn
+  InputKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: "metricsInStream"
+      ShardCount: 1
+  KinesisAnalyticsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: kinesisanalytics.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: Open
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "kinesis:*"
+                  - "firehose:*"
+                  - "s3:*"
+                  - "lambda:*"
+                  - "cloudwatch:*"
+                Resource: "*"
+  ApplicationOutputs:
+    Type: AWS::KinesisAnalytics::ApplicationOutput
+    DependsOn: "KinesisDataApplication"
+    Properties:
+      ApplicationName: !Ref KinesisDataApplication
+      Output:
+        Name: "metricsOutStream"
+        DestinationSchema:
+          RecordFormatType: "CSV"
+        KinesisStreamsOutput:
+          ResourceARN: !GetAtt OutputKinesisStream.Arn
+          RoleARN: !GetAtt KinesisAnalyticsRole.Arn
+  OutputKinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: "metricsOutStream"
+      ShardCount: 1
+Outputs:
+  ApplicationPhysicalResourceId:
+    Value: "KinesisDataApplication"

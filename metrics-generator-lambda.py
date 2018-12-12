@@ -25,7 +25,7 @@ def lambda_handler(event, context):
                       "device_id": device,
                       "event_type": event_type,
                       "application": "koliber-iot",
-                      "id": str(uuid.uuid4()),
+                      "metric_id": str(uuid.uuid4()),
                       "temperature": random.randint(0, 80),
                       "humidity": random.randint(10, 90),
                       "pressure": random.randint(990, 1020)}

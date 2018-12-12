@@ -9,16 +9,17 @@ Resources:
       ApplicationCode: |
         CREATE OR REPLACE STREAM "DESTINATION_STREAM"
         (date_time VARCHAR(32),
+        device_id VARCHAR(15),
         metric_id VARCHAR(64),
         temperature NUMERIC);
 
         CREATE OR REPLACE PUMP "STREAM_PUMP" AS
 
         INSERT INTO "DESTINATION_STREAM"
-        SELECT STREAM date_time, metric_id, temperature
-        FROM   "SOURCE_STREAM";
+        SELECT STREAM "date_time", "device_id", "metric_id", "temperature"
+        FROM   "SOURCE_SQL_STREAM_001";
       Inputs:
-        - NamePrefix: "metricsInStream"
+        - NamePrefix: "SOURCE_SQL_STREAM"
           InputSchema:
             RecordColumns:
               - Name: "date_time"
@@ -33,9 +34,9 @@ Resources:
               - Name: "application"
                 SqlType: "VARCHAR(8)"
                 Mapping: "$.application"
-              - Name: "id"
+              - Name: "metric_id"
                 SqlType: "VARCHAR(64)"
-                Mapping: "$.id"
+                Mapping: "$.metric_id"
               - Name: "temperature"
                 SqlType: "NUMERIC"
                 Mapping: "$.temperature"
@@ -56,7 +57,7 @@ Resources:
   InputKinesisStream:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: "metricsInStream"
+      Name: "metricsInputStream"
       ShardCount: 1
   KinesisAnalyticsRole:
     Type: AWS::IAM::Role
@@ -88,7 +89,7 @@ Resources:
     Properties:
       ApplicationName: !Ref KinesisDataApplication
       Output:
-        Name: "metricsOutStream"
+        Name: "DESTINATION_STREAM"
         DestinationSchema:
           RecordFormatType: "CSV"
         KinesisStreamsOutput:
@@ -97,7 +98,7 @@ Resources:
   OutputKinesisStream:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: "metricsOutStream"
+      Name: "metricsOutputStream"
       ShardCount: 1
 Outputs:
   ApplicationPhysicalResourceId:
